@@ -1,6 +1,5 @@
 import argparse
 import csv
-import os
 import re
 import shutil
 from pathlib import Path
@@ -8,6 +7,8 @@ from typing import NamedTuple, Optional, Self
 
 
 class SubtitleLocaleFixer:
+
+    SUFFIXES = ('.ass', '.ssa', '.sup', '.srt')
 
     class Rule(NamedTuple):
         source: str
@@ -76,55 +77,26 @@ class MediaOrganizer:
         if not directory:
             directory = self.target
 
-        # if season is None:
-        #     season_match = re.search(
-        #         r"(?:s|season)\s*(\d+)", directory.name, re.I)
-        #     season = int(season_match.group(1)) if season_match else 1
+        dir_season = directory.joinpath(f"Season {season}")
+        dir_extra = directory.joinpath("EXTRA", f"Season {season}")
 
-        video_files = []
-        sub_files = []
-        extra_candidates = []
+        dir_season.mkdir(exist_ok=True)
+        dir_extra.mkdir(exist_ok=True)
 
-        for item in directory.iterdir():
-            if item.is_file():
-                if item.suffix.lower() in {".mkv", ".mp4", ".m2ts", ".ts"}:
-                    video_files.append(item)
-                elif item.suffix.lower() in {".srt", ".ass", ".ssa", ".sup"}:
-                    sub_files.append(item)
-            elif item.is_dir():
-                extra_candidates.append(item)
+        for f in [p for p in directory.iterdir()
+                  if p.is_file() and p.suffix in self.sub_fixer.SUFFIXES]:
+            shutil.move(f, self.sub_fixer.fix_name(f.name))
 
-        # TODO
-        if len(video_files) <= 2 and len(extra_candidates) >= 3:
-            for subdir in extra_candidates:
-                self.organize_directory(subdir, None)
-            return
+        for d in [p for p in directory.iterdir() if p.is_dir()]:
+            shutil.move(d, dir_extra)
 
-        season_dir = directory.joinpath(f"Season {season:02d}")
-        extra_dir = directory.joinpath("EXTRA", f"Season {season:02d}")
+        # for f in [p for p in directory.iterdir() if p.is_file()]:
+        #     search = re.search(r'\[\d{1,2}\]|\s\d{2}(?=\s|$)|S\d+E\d+', f.name)
+        #     if not search:
+        #         pass
 
-        season_dir.mkdir(exist_ok=True)
-        extra_dir.parent.mkdir(exist_ok=True)
-
-        self._move_videos(video_files, season_dir)
-        self._move_subtitles(sub_files, season_dir)
-        self._move_extras(extra_candidates, extra_dir, season_dir)
-
-    def _move_videos(self, files: list[Path], dest: Path):
-        for f in files:
-            f.rename(dest.joinpath(f.name))
-
-    def _move_subtitles(self, files: list[Path], dest: Path):
-        for f in files:
-            fixed_name = self.sub_fixer.fix_name(f.name)
-            dest.joinpath(fixed_name).write_bytes(f.read_bytes())
-            f.unlink()
-
-    def _move_extras(self, dirs: list[Path], extra_dest: Path, season_dest: Path):
-        for d in dirs:
-            name = d.name.lower()
-            if any(x in name for x in ["bonus", "extra", "feature", "behind"]):
-                shutil.move(str(d), str(extra_dest.joinpath(d.name)))
+        for f in [p for p in directory.iterdir() if p.is_file()]:
+            shutil.move(d,  dir_season)
 
 
 def main():
@@ -165,11 +137,7 @@ def main():
         fixer.default_locale = args.default_locale
         fixer.rules = mappings
 
-    organizer = MediaOrganizer(
-        target=args.target,
-        season=args.season,
-        sub_fixer=fixer,
-    )
+    organizer = MediaOrganizer(target=args.target, sub_fixer=fixer)
 
     if args.interactive:
         organizer.process_interactive()
