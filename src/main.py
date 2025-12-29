@@ -73,7 +73,7 @@ class MediaOrganizer:
 
             self.organize_directory(season=season_input, directory=item)
 
-    def organize_directory(self, season: Optional[str], directory: Path = None):
+    def organize_directory(self, season: str, directory: Path = None):
         if not directory:
             directory = self.target
 
@@ -102,7 +102,8 @@ class MediaOrganizer:
 def main():
     parser = argparse.ArgumentParser(
         description="Simple media organizer for Jellyfin")
-    parser.add_argument("-s", "--season", type=int, help="Force season number")
+    parser.add_argument("-s", "--season", type=int,
+                        help="Force season number", default="1")
     parser.add_argument("-t", "--target", type=Path, default=Path.cwd(),
                         help="Target directory (default: current)")
     parser.add_argument("-i", "--interactive", action="store_true",
