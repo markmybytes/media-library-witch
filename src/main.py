@@ -98,6 +98,17 @@ class MediaOrganizer:
         for f in [p for p in directory.iterdir() if p.is_file()]:
             shutil.move(d,  dir_season)
 
+    def _generate_nfo(self, files: list[Path], season: int, ep_offset: int = 0) -> None:
+        for i, path in enumerate(files, 1):
+            xml = f'''<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+    <episodedetails>
+        <episode>{i + ep_offset}</episode>
+        <season>{season}</season>
+    </episodedetails>'''
+
+            with open(f"{path}.nfo", "w", encoding="utf-8") as f:
+                f.write(xml)
+
 
 def main():
     parser = argparse.ArgumentParser(
